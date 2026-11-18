@@ -6,9 +6,8 @@ SmartTill NG automatically splits every sale a small merchant receives into two 
 
 Built for the **Payment Automation and Financial Workflows** track.
 
-- **Live demo:** `<add your Vercel URL>`
-- **Demo video:** `<add your video link>`
-- **Built by:** `<your name>`
+- **Live demo:** http://smarttill-ng.vercel.app/
+- **Built by:** `Durojaiye Bryan & Oddy WisdomPraise`
 
 > SmartTill runs on the Interledger **test network**. Amounts are in the test wallets' currency, not Naira. Any Naira figure shown in the app is illustrative and labelled as such.
 
