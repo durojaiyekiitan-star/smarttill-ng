@@ -12,8 +12,19 @@ export async function sendWhatsApp(to: string, body: string): Promise<Sent> {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_WHATSAPP_FROM;
+  const contentSid = process.env.TWILIO_CONTENT_SID;
   if (!sid || !token || !from) return { ok: false, error: "WhatsApp is not set up on the server yet (missing Twilio settings)." };
   try {
+    const params = new URLSearchParams({
+      From: `whatsapp:${from.replace(/^whatsapp:/, "")}`,
+      To: `whatsapp:${to.replace(/^whatsapp:/, "")}`,
+    });
+    if (contentSid) {
+      params.append("ContentSid", contentSid.trim());
+    } else {
+      params.append("Body", body);
+    }
+
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: "POST",
       headers: {
