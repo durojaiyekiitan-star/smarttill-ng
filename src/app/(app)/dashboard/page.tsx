@@ -50,7 +50,7 @@ export default async function Dashboard() {
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/settings#whatsapp" className="group inline-flex h-9 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-sm text-neutral-600 transition hover:border-[#0f3d2e]/40 hover:bg-[#f6faf7] active:scale-95">
             <MessageCircle size={14} className={waOn ? "text-green-700" : "text-neutral-400"} />
-            {waOn ? "WhatsApp alerts on" : m?.whatsapp_number ? "WhatsApp not connected" : "Turn on WhatsApp alerts"}
+            {waOn ? "WhatsApp alerts on" : m?.whatsapp_number ? "WhatsApp connected" : "Turn on WhatsApp alerts"}
           </Link>
           {mode === "demo" ? <ApiButton label="Simulate a sale" busyLabel="Simulating…" url="/api/demo/sale" primary /> : <AutoSync />}
         </div>
