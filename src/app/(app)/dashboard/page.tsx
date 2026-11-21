@@ -15,11 +15,12 @@ export default async function Dashboard() {
   const user = (await getUser())!;
   const sb = await supabaseServer();
   const mode = appMode();
-  const [{ data: tx }, { data: legs }, { data: s }, { data: m }] = await Promise.all([
+  const [{ data: tx }, { data: legs }, { data: s }, { data: m }, { data: wcs }] = await Promise.all([
     sb.from("incoming_payments").select("*").eq("mode", mode).order("occurred_at", { ascending: false }).limit(1000),
     sb.from("outgoing_payments").select("role,status,debit_value,incoming_payment_id").eq("status", "completed"),
     sb.from("allocation_settings").select("*").maybeSingle(),
     sb.from("merchants").select("whatsapp_number,full_name").maybeSingle(),
+    sb.from("wallet_configs").select("role"),
   ]);
   const rows = tx ?? [];
   const latest = rows[0];
@@ -35,7 +36,8 @@ export default async function Dashboard() {
   const owner = sum((legs ?? []).filter((l) => l.role === "owner" && ids.has(l.incoming_payment_id)).map((l) => l.debit_value));
   const dayStart = startOfLagosDayIso();
   const today = sum(rows.filter((r) => r.occurred_at >= dayStart).map((r) => r.received_value));
-  const grantOk = mode === "demo" ? true : await hasActiveGrant(user.id);
+  const hasWallets = mode === "demo" ? true : (wcs?.length ?? 0) >= 3;
+  const grantOk = mode === "demo" ? true : hasWallets && (await hasActiveGrant(user.id));
   const showNgn = mode !== "demo" && code;
   const first = (m?.full_name ?? "").trim().split(" ")[0];
   const waOn = Boolean(m?.whatsapp_number) && whatsappConfigured();
@@ -47,13 +49,18 @@ export default async function Dashboard() {
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/settings#whatsapp" className="group inline-flex h-9 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-sm text-neutral-600 transition hover:border-[#0f3d2e]/40 hover:bg-[#f6faf7] active:scale-95">
             <MessageCircle size={14} className={waOn ? "text-green-700" : "text-neutral-400"} />
-            {waOn ? "WhatsApp alerts on" : m?.whatsapp_number ? "WhatsApp connected" : "Turn on WhatsApp alerts"}
+            {waOn ? "WhatsApp alerts on" : m?.whatsapp_number ? "WhatsApp not connected" : "Turn on WhatsApp alerts"}
           </Link>
           {mode === "demo" ? <ApiButton label="Simulate a sale" busyLabel="Simulating…" url="/api/demo/sale" primary /> : <AutoSync />}
         </div>
       </div>
 
-      {!grantOk && (
+      {!hasWallets && (
+        <Link href="/wallets" className="mb-4 block rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 transition hover:bg-amber-100">
+          <b>Connect your wallets</b> to start splitting sales.
+        </Link>
+      )}
+      {hasWallets && !grantOk && (
         <Link href="/wallets" className="mb-4 block rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 transition hover:bg-amber-100">
           Sales are detected but not split yet. <b>Authorise transfers</b> to start.
         </Link>

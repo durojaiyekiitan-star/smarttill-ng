@@ -19,6 +19,7 @@ export default function ApiButton({ label, busyLabel, url, body, confirmText, pr
       const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.error) setNote({ ok: false, text: data.error ?? "Something went wrong" });
+      else if (data.needsWallets) setNote({ ok: false, text: "Connect your wallets on the Wallets page first." });
       else if (data.needsGrant) setNote({ ok: false, text: "Authorise outgoing payments on the Wallets page first." });
       else if (data.busy) setNote({ ok: false, text: "Another check is already running. Try again in a moment." });
       else setNote({ ok: true, text: "Done" });

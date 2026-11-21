@@ -1,11 +1,10 @@
 import { supabaseAdmin } from "./supabase/admin";
-import { walletUrlsFromEnv } from "./env";
 import { normalizePhone } from "./notify-format";
 
 type U = { id: string; email?: string | null; user_metadata?: Record<string, unknown> };
 const str = (v: unknown, max = 80) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
-/** Creates the merchant row, default 70/30 settings and wallet config on first visit. Idempotent. */
+/** Creates the merchant row and default 70/30 settings on first visit. Wallets are connected by the merchant. Idempotent. */
 export async function ensureMerchant(user: U) {
   const admin = supabaseAdmin();
   const { data } = await admin.from("merchants").select("id").eq("id", user.id).maybeSingle();
@@ -21,6 +20,4 @@ export async function ensureMerchant(user: U) {
   await admin
     .from("allocation_settings")
     .upsert({ merchant_id: user.id, reserve_percent: 70, owner_percent: 30 }, { onConflict: "merchant_id", ignoreDuplicates: true });
-  const wallets = walletUrlsFromEnv().map((w) => ({ merchant_id: user.id, role: w.role, wallet_url: w.url }));
-  if (wallets.length) await admin.from("wallet_configs").upsert(wallets, { onConflict: "merchant_id,role", ignoreDuplicates: true });
 }

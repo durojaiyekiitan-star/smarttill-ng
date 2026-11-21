@@ -4,6 +4,7 @@ import { appMode } from "../env";
 import { allocateIncoming, type Ports } from "../processor";
 import { supabaseAdmin } from "../supabase/admin";
 import { notifyTransaction } from "../notify";
+import { getMerchantWallets, walletsComplete } from "../wallets";
 import {
   getOutgoingPayment,
   getOutgoingToken,
@@ -29,6 +30,7 @@ export interface SyncSummary {
   mode: string;
   busy?: boolean;
   needsGrant?: boolean;
+  needsWallets?: boolean;
   ingested: number;
   processed: number;
   reconciled: number;
@@ -96,6 +98,7 @@ function makePorts(merchantId: string, inc: { id: string; reference: string; ass
         debit,
         assetCode: inc.asset_code,
         assetScale: inc.asset_scale,
+        senderWalletUrl: wallets.main,
         receiverWalletUrl: wallets[role],
         reference: inc.reference,
         save: async (patch) => {
@@ -127,6 +130,7 @@ async function processPending(merchantId: string, onlyId?: string): Promise<numb
   if (!pending?.length) return 0;
   const { data: wcs } = await admin().from("wallet_configs").select("role,wallet_url").eq("merchant_id", merchantId);
   const wallets = Object.fromEntries((wcs ?? []).map((w) => [w.role, w.wallet_url]));
+  if (!wallets.main || !wallets.reserve || !wallets.owner) return 0;
   let n = 0;
   for (const inc of pending) {
     const res = await allocateIncoming(makePorts(merchantId, inc, wallets), {
@@ -188,7 +192,7 @@ async function ingest(merchantId: string, merchantCreatedAt: string, summary: Sy
     if (received === 0n) continue;
     const reached = p.incomingAmount ? received >= BigInt(p.incomingAmount.value) : false;
     if (!p.completed && !reached) continue; // still receiving
-    if (new Date(p.createdAt) < new Date(merchantCreatedAt)) continue; // ignore funds added before signup
+    if (new Date(p.createdAt) < new Date(merchantCreatedAt)) continue; // ignore anything received before this wallet was connected
     rows.push({
       merchant_id: merchantId,
       mode: "testnet",
@@ -236,8 +240,13 @@ export async function syncMerchant(merchantId: string): Promise<SyncSummary> {
   if (appMode() === "demo") return summary;
   const res = await withLock(merchantId, async (createdAt) => {
     try {
+      const w = await getMerchantWallets(merchantId);
+      if (!walletsComplete(w)) {
+        summary.needsWallets = true; // nothing to watch until the merchant connects their own wallets
+        return;
+      }
       summary.reconciled = await reconcile(merchantId);
-      await ingest(merchantId, createdAt, summary);
+      await ingest(merchantId, w.mainConnectedAt ?? createdAt, summary);
       if (await hasActiveGrant(merchantId)) summary.processed = await processPending(merchantId);
       else summary.needsGrant = true; // leave payments pending until the merchant authorises transfers
     } catch (e) {
@@ -253,6 +262,10 @@ export async function retryFailedLegs(merchantId: string, incomingId: string): P
   const summary: SyncSummary = { mode: appMode(), ingested: 0, processed: 0, reconciled: 0 };
   const res = await withLock(merchantId, async () => {
     try {
+      if (!walletsComplete(await getMerchantWallets(merchantId))) {
+        summary.needsWallets = true;
+        return;
+      }
       if (!(await hasActiveGrant(merchantId))) {
         summary.needsGrant = true;
         return;

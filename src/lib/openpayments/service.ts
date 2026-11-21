@@ -2,11 +2,18 @@ import { isPendingGrant } from "@interledger/open-payments";
 import type { IncomingPayment } from "@interledger/open-payments";
 import { createHash, randomUUID } from "node:crypto";
 import { decrypt, encrypt } from "../crypto";
-import { must } from "../env";
+import { getMerchantWallets } from "../wallets";
 import { supabaseAdmin } from "../supabase/admin";
 import { NotSentError, type LegOutcome } from "../processor";
 import type { Role } from "../allocation";
 import { getClient, getWallet } from "./client";
+
+
+async function mainWalletUrl(merchantId: string): Promise<string> {
+  const w = await getMerchantWallets(merchantId);
+  if (!w.main) throw new Error("Connect your wallets first. Go to the Wallets page.");
+  return w.main;
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -15,7 +22,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export async function listMainTillIncoming(merchantId: string): Promise<IncomingPayment[]> {
   const client = await getClient();
-  const wallet = await getWallet(must("MAIN_TILL_WALLET_URL"));
+  const wallet = await getWallet(await mainWalletUrl(merchantId));
   const token = await getOutgoingToken(merchantId);
   const all: IncomingPayment[] = [];
   let cursor: string | undefined;
@@ -35,7 +42,7 @@ export async function listMainTillIncoming(merchantId: string): Promise<Incoming
 
 export async function startOutgoingGrant(merchantId: string, origin: string): Promise<string> {
   const client = await getClient();
-  const wallet = await getWallet(must("MAIN_TILL_WALLET_URL"));
+  const wallet = await getWallet(await mainWalletUrl(merchantId));
   const units = BigInt(process.env.GRANT_LIMIT_UNITS || "1000");
   const limit = {
     value: (units * 10n ** BigInt(wallet.assetScale)).toString(),
@@ -162,6 +169,7 @@ export async function sendLeg(a: {
   debit: bigint;
   assetCode: string;
   assetScale: number;
+  senderWalletUrl: string;
   receiverWalletUrl: string;
   reference: string;
   save: (patch: Partial<LegOutcome>) => Promise<void>;
@@ -171,7 +179,7 @@ export async function sendLeg(a: {
 
   // Everything before the outgoing payment exists is safe to retry, so failures here are NotSentError.
   try {
-    sender = await getWallet(must("MAIN_TILL_WALLET_URL"));
+    sender = await getWallet(a.senderWalletUrl);
     const receiver = await getWallet(a.receiverWalletUrl);
 
     const inGrant = await client.grant.request(

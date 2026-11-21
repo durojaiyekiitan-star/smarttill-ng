@@ -2,13 +2,12 @@ import { createAuthenticatedClient } from "@interledger/open-payments";
 import { createPrivateKey } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { must } from "../env";
+import { normalizeWalletUrl } from "../wallet-input";
 
 type Client = Awaited<ReturnType<typeof createAuthenticatedClient>>;
 let cached: Promise<Client> | null = null;
 
-export function normalizeWalletUrl(u: string): string {
-  return u.trim().replace(/^\$/, "https://").replace(/\/$/, "");
-}
+export { normalizeWalletUrl };
 
 function loadPrivateKey() {
   let text: string;
