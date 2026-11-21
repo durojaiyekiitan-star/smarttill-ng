@@ -49,12 +49,12 @@ export async function POST(req: NextRequest) {
 
   // 4. Save. connected_at only moves when the Main Till wallet changes: older payments are never split.
   const now = new Date().toISOString();
-  const rows = (["main", "reserve", "owner"] as const).map((role) => ({
-    merchant_id: user.id,
-    role,
-    wallet_url: v.urls[role],
-    ...(role === "main" && mainChanged ? { connected_at: now } : {}),
-  }));
+const rows = (["main", "reserve", "owner"] as const).map((role) => ({
+  merchant_id: user.id,
+  role,
+  wallet_url: v.urls[role],
+  connected_at: now,
+}));
   const { error } = await admin.from("wallet_configs").upsert(rows, { onConflict: "merchant_id,role" });
   if (error) {
     const dup = error.code === "23505";
