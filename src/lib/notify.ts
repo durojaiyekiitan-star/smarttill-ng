@@ -12,15 +12,26 @@ export async function sendWhatsApp(to: string, body: string): Promise<Sent> {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_WHATSAPP_FROM;
+  const contentSid = process.env.TWILIO_CONTENT_SID || "HXb131895de71a093156d1062e878de57c";
   if (!sid || !token || !from) return { ok: false, error: "WhatsApp is not set up on the server yet (missing Twilio settings)." };
   try {
-    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+    const params = new URLSearchParams({
+      From: `whatsapp:${from.replace(/^whatsapp:/, "")}`,
+      To: `whatsapp:${to.replace(/^whatsapp:/, "")}`,
+    });
+    if (contentSid) {
+      params.append("ContentSid", contentSid.trim());
+    } else {
+      params.append("Body", body);
+    }
+
+    const res = await fetch(`https://twilio.com{sid}/Messages.json`, {
       method: "POST",
       headers: {
         Authorization: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64"),
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({ From: `whatsapp:${from.replace(/^whatsapp:/, "")}`, To: `whatsapp:${to}`, Body: body }),
+      body: params,
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.message ?? `Twilio error ${res.status}` };

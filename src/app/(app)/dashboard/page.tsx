@@ -4,6 +4,7 @@ import AnimatedNumber from "@/components/AnimatedNumber";
 import ApiButton from "@/components/ApiButton";
 import AutoSync from "@/components/AutoSync";
 import SaleFlow from "@/components/SaleFlow";
+import CreditRecoveryCard from "@/components/CreditRecoveryCard";
 import { Amount, Card, EmptyState, StatusBadge, lift, when } from "@/components/ui";
 import { appMode, startOfLagosDayIso } from "@/lib/env";
 import { formatMinor, illustrativeNgn, ngnPerUnit } from "@/lib/money";
@@ -94,6 +95,7 @@ export default async function Dashboard() {
           <p className="mt-2 text-3xl font-semibold tabular-nums"><AnimatedNumber value={owner.toString()} scale={scale} /> <span className="text-base font-medium text-neutral-400">{code}</span></p>
         </Card>
       </div>
+      <CreditRecoveryCard code={code || "EUR"} />
 
       {latest ? (
         <Card className="mb-4">
